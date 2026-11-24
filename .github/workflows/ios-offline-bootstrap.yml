@@ -28,9 +28,14 @@ jobs:
           "$RUNNER_TEMP/TrollStore/Exploits/fastPathSign/fastPathSign" \
             --entitlements home/scripts/network-services/incus-phone/offline-bootstrap-entitlements.plist output/OfflineBootstrap
           codesign -d --entitlements :- output/OfflineBootstrap
+          xcrun --sdk iphoneos clang -arch arm64 -miphoneos-version-min=16.0 -Os -Wall -Wextra -Werror \
+            -fobjc-arc -framework Foundation -framework CoreFoundation \
+            home/scripts/network-services/incus-phone/phone-wifi.m -o output/phone-wifi
+          "$RUNNER_TEMP/TrollStore/Exploits/fastPathSign/fastPathSign" \
+            --entitlements home/scripts/network-services/incus-phone/phone-wifi-entitlements.plist output/phone-wifi
           xcrun clang --version > output/toolchain.txt
           git rev-parse HEAD > output/source-revision.txt
-          shasum -a 256 output/OfflineBootstrap > output/SHA256SUMS
+          shasum -a 256 output/OfflineBootstrap output/phone-wifi > output/SHA256SUMS
       - uses: actions/upload-artifact@v4
         with:
           name: ios-offline-bootstrap
