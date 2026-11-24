@@ -1,0 +1,38 @@
+name: Build iOS offline bootstrap
+on:
+  workflow_dispatch:
+  push:
+    branches: [offline-usb-bootstrap]
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build official CoreTrust signing utility
+        shell: bash
+        run: |
+          git clone --no-checkout https://github.com/opa334/TrollStore.git "$RUNNER_TEMP/TrollStore"
+          git -C "$RUNNER_TEMP/TrollStore" checkout 88424f683b2a08f34a3f88985f790f97d84ce1df
+          git -C "$RUNNER_TEMP/TrollStore" submodule update --init --recursive
+          export PKG_CONFIG_PATH="$(brew --prefix openssl@3)/lib/pkgconfig"
+          make -C "$RUNNER_TEMP/TrollStore/Exploits/fastPathSign"
+      - name: Compile and sign iOS bootstrap
+        shell: bash
+        run: |
+          mkdir output
+          xcrun --sdk iphoneos clang -arch arm64 -miphoneos-version-min=16.0 -Os -Wall -Wextra -Werror \
+            home/scripts/network-services/incus-phone/offline-bootstrap.c -o output/OfflineBootstrap
+          "$RUNNER_TEMP/TrollStore/Exploits/fastPathSign/fastPathSign" \
+            --entitlements home/scripts/network-services/incus-phone/offline-bootstrap-entitlements.plist output/OfflineBootstrap
+          codesign -d --entitlements :- output/OfflineBootstrap
+          xcrun clang --version > output/toolchain.txt
+          git rev-parse HEAD > output/source-revision.txt
+          shasum -a 256 output/OfflineBootstrap > output/SHA256SUMS
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ios-offline-bootstrap
+          path: output/
+          retention-days: 3
